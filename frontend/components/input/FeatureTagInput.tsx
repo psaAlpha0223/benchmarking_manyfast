@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 
-const MAX_TAGS = 3;
-
 export default function FeatureTagInput({
   tags,
   onChange,
@@ -16,7 +14,7 @@ export default function FeatureTagInput({
 
   function addTag(raw: string) {
     const value = raw.trim();
-    if (!value || tags.length >= MAX_TAGS || tags.includes(value)) return;
+    if (!value || tags.includes(value)) return;
     onChange([...tags, value]);
     setDraft("");
   }
@@ -39,7 +37,7 @@ export default function FeatureTagInput({
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-gray-700">
-        주요 기능 태그 ({tags.length}/{MAX_TAGS}, 필수)
+        주요 기능 태그 ({tags.length}, 필수)
       </label>
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-gray-300 px-3 py-2">
         {tags.map((tag) => (
@@ -57,17 +55,15 @@ export default function FeatureTagInput({
             </button>
           </span>
         ))}
-        {tags.length < MAX_TAGS && (
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onCompositionStart={() => setComposing(true)}
-            onCompositionEnd={() => setComposing(false)}
-            placeholder="예: 회의록 요약 (Enter로 추가)"
-            className="min-w-[160px] flex-1 text-sm outline-none"
-          />
-        )}
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={() => setComposing(false)}
+          placeholder="예: 회의록 요약 (Enter로 추가)"
+          className="min-w-[160px] flex-1 text-sm outline-none"
+        />
       </div>
     </div>
   );
