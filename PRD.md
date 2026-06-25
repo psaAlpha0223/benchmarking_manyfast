@@ -1,13 +1,17 @@
 # PRD: 내부 AI 기획 요청 자동화 서비스
 
-> **문서 버전:** v1.4
-> **작성일:** 2026-06-23
+> **문서 버전:** v1.8
+> **작성일:** 2026-06-25
 > **상태:** Draft
 > **변경 이력:**
 > - v1.1 — Input 3단계 플로우 도입, 다운로드 기능 제거
 > - v1.2 — Supabase DB 설계 섹션 신규 추가, Output 렌더링 명세 추가, DB 마이그레이션 방식 추가
 > - v1.3 — 어드민 계정 생성 기반 인증 시스템 추가 (Supabase Auth, 최초 로그인 비밀번호 강제 변경)
 > - v1.4 — 기능명세서 3개 뷰 구조 실제 매니패스트 기준으로 재정의 (트리뷰: react-flow 마인드맵, 디렉토리뷰: 3단 패널, 도큐먼트뷰: 테이블)
+> - v1.5 — `/api/generate`를 단계별(request_id + output_type) 생성 방식으로 변경, 요청 이력 목록·재개(resume) 기능 추가, 기능명세서 도큐먼트뷰 컬럼을 실제 데이터 기준("비고")으로 정정, 유저플로우 프롬프트에 Mermaid 문법 충돌 방지 규칙 추가
+> - v1.6 — 요청 이력에 수정(PATCH)·삭제(DELETE) 기능 추가 (수정 시 기존 Output 전체 삭제 후 PRD부터 재생성)
+> - v1.7 — 헤더 네비게이션을 탭 형태로 재설계 (현재 페이지 활성 상태 표시, 서비스명과 네비게이션 분리)
+> - v1.8 — MVP 배포 단계에서 와이어프레임 생성을 환경변수로 비활성화 (`ENABLE_WIREFRAME`/`NEXT_PUBLIC_ENABLE_WIREFRAME`, 기능 코드는 유지, Vercel 서버리스 타임아웃 회피 목적)
 
 ---
 
@@ -170,8 +174,8 @@ Q3. 지금은 회의가 끝난 뒤 어떻게 정리하고 계신가요?
   - **디렉토리뷰:** 3단 패널 구조
     - 좌측 패널: 요구사항 대분류 목록
     - 중간 패널: 선택한 대분류의 기능 목록 (기능 ID + 기능명 + 하위 기능 수)
-    - 우측 패널: 선택한 기능의 상세 팝업 (기능 설명, 수용 기준, 연결된 기능 등)
-  - **도큐먼트뷰:** 전체 기능을 표(테이블) 형태로 정리. 기능 ID / 기능명 / 설명 / 우선순위 / 수용 기준 컬럼 구성
+    - 우측 패널: 선택한 기능의 상세 (기능 설명, 세부 기능별 우선순위·비고)
+  - **도큐먼트뷰:** 전체 기능을 표(테이블) 형태로 정리. 기능 ID / 기능명 / 설명 / 우선순위 / 비고 컬럼 구성 (v1.5: "수용 기준"·"연결된 기능"은 6.4 프롬프트 출력 스키마에 해당 필드가 없어 "비고"로 정정)
 
 #### 2.3.3 유저플로우 (3순위)
 - **구성 항목:**
@@ -193,6 +197,8 @@ Q3. 지금은 회의가 끝난 뒤 어떻게 정리하고 계신가요?
 | 기능명세서 | JSON | 트리뷰: `react-flow` 마인드맵 / 디렉토리뷰: 3단 패널 / 도큐먼트뷰: 테이블 | `react-flow` + 커스텀 컴포넌트 |
 | 유저플로우 | Mermaid 코드 | 플로우차트 다이어그램으로 렌더링 | `mermaid.js` |
 | 와이어프레임 | HTML | 격리된 환경에서 실제 화면처럼 렌더링 | `iframe` / Shadow DOM |
+
+> **v1.8:** 와이어프레임은 생성 시간이 길어 서버리스 배포 환경(Vercel)에서 타임아웃 위험이 있다. MVP 배포 단계에서는 `ENABLE_WIREFRAME`/`NEXT_PUBLIC_ENABLE_WIREFRAME` 환경변수로 생성·노출만 끄고, 기능 코드는 그대로 유지한다.
 
 ### 2.5 Output 저장
 
@@ -221,7 +227,7 @@ Q3. 지금은 회의가 끝난 뒤 어떻게 정리하고 계신가요?
 ├── 새 비밀번호 확인 입력
 └── [변경 완료] 버튼 → 메인 화면으로 이동
 
-[헤더: 서비스명 + 로고 + 우측 사용자 이메일 + 로그아웃]
+[헤더: 서비스명(브랜드 텍스트) + 네비게이션 탭(새 요청 / 요청 이력, 현재 페이지는 밑줄로 활성 표시, v1.7) + 우측 사용자 이메일 + 로그아웃]
 │
 ├── [Step 1 화면: Input 영역] — 단일 카드 내 세 영역이 위→아래로 배치
 │   ├── 요청 내용 (자유 텍스트, 멀티라인)
@@ -287,6 +293,11 @@ project-root/
 │   │   │   └── page.tsx               # 최초 로그인 비밀번호 강제 변경 화면
 │   │   ├── reset-password/
 │   │   │   └── page.tsx               # 비밀번호 재설정 화면 (이메일 링크 경유)
+│   │   ├── requests/                  # (v1.5 신규) 요청 이력
+│   │   │   ├── page.tsx               # 전체 요청 이력 목록 + 삭제 (v1.6)
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx           # 요청 상세 데이터 로딩
+│   │   │       └── RequestDetailView.tsx  # 상세 렌더링 + 이어서 생성 + 수정/삭제 (v1.6)
 │   │   └── globals.css
 │   ├── components/
 │   │   ├── auth/
@@ -302,6 +313,7 @@ project-root/
 │   │   │   └── InterviewStep.tsx      # Step 2 질문 목록 + 건너뛰기/생성 버튼
 │   │   ├── output/
 │   │   │   ├── OutputTabs.tsx         # PRD/기능명세서/유저플로우/와이어프레임 탭
+│   │   │   ├── GenerationPanel.tsx    # (v1.5 신규) OutputTabs + 다음 단계 생성 버튼, Step3/요청 이력 재개 공용
 │   │   │   ├── PrdView.tsx            # react-markdown으로 렌더링
 │   │   │   ├── SpecView.tsx           # 기능명세서 뷰 컨테이너 (탭 전환 관리)
 │   │   │   ├── spec/
@@ -318,10 +330,13 @@ project-root/
 │   │   │   ├── SkeletonLoader.tsx
 │   │   │   └── ErrorMessage.tsx
 │   │   └── layout/
-│   │       └── Header.tsx             # 서비스명 + 사용자 이메일 + 로그아웃
+│   │       └── Header.tsx             # 서비스명 + 네비게이션 탭(새 요청/요청 이력, 현재 페이지 활성 표시, v1.7) + 사용자 이메일 + 로그아웃
 │   ├── lib/
 │   │   ├── api.ts                     # FastAPI 호출 유틸
-│   │   └── supabase.ts                # Supabase 클라이언트 초기화
+│   │   ├── supabase.ts                # Supabase 클라이언트 초기화
+│   │   └── config.ts                  # (v1.8 신규) NEXT_PUBLIC_ENABLE_WIREFRAME 등 기능 플래그
+│   ├── hooks/
+│   │   └── useGenerationFlow.ts       # (v1.5 신규) Output 생성 상태/SSE 처리 공용 훅
 │   ├── middleware.ts                   # 비로그인 시 /login으로 리다이렉트
 │   ├── types/
 │   │   └── output.ts                  # Output 타입 정의
@@ -333,7 +348,8 @@ project-root/
     ├── main.py                        # FastAPI 엔트리포인트
     ├── routers/
     │   ├── interview.py               # /interview 엔드포인트 (질문 생성)
-    │   └── generate.py                # /generate 엔드포인트 (Output 생성)
+    │   ├── generate.py                # /generate 엔드포인트 (Output 생성, output_type 단위)
+    │   └── requests.py                # (v1.5 신규) /requests 목록·상세 조회 엔드포인트
     ├── services/
     │   ├── file_parser.py             # 첨부 파일 텍스트 추출
     │   ├── claude_service.py          # Claude API 호출 및 프롬프트 관리
@@ -371,19 +387,23 @@ project-root/
 | POST | `/api/generate` | 전체 입력 + 질문 응답 → Output 생성 + DB 저장 (SSE 스트리밍) |
 | GET | `/api/requests` | 요청 이력 목록 조회 |
 | GET | `/api/requests/{request_id}` | 특정 요청의 Output 상세 조회 |
+| PATCH | `/api/requests/{request_id}` | 요청 내용 수정 (기존 Output 전체 삭제, v1.6) |
+| DELETE | `/api/requests/{request_id}` | 요청 및 모든 Output 삭제 (v1.6) |
 | GET | `/api/health` | 서버 상태 확인 |
 
 ---
 
 ### 5.2 POST `/api/interview`
 
-**요청 (multipart/form-data)**
+**요청 (application/json)**
+
+파일은 프론트엔드가 Supabase Storage에 직접 업로드한 뒤, 그 경로만 아래 요청에 포함한다 (대용량 파일을 백엔드를 거쳐 두 번 업로드하지 않기 위함, v1.5에서 정정).
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | `text` | string | 조건부 | 프로젝트 설명 자유 텍스트 |
 | `features` | string[] | ✅ | 주요 기능 태그 (1~3개) |
-| `files` | File[] | 선택 | 첨부 파일 목록 |
+| `file_paths` | string[] | 선택 | Supabase Storage에 업로드된 파일 경로 목록 |
 
 **응답 (application/json)**
 
@@ -413,19 +433,28 @@ project-root/
 
 ### 5.3 POST `/api/generate`
 
-**요청 (multipart/form-data)**
+> v1.5에서 한 번의 호출에 PRD~와이어프레임을 전부 순차 생성하던 방식에서, `output_type` 하나씩 생성하는 방식으로 변경됨 (사용자가 PRD만 필요한 경우 등 불필요한 토큰 소모를 막기 위함). 프론트엔드는 각 단계 완료 후 "OO 생성하기" 버튼으로 다음 단계를 직접 트리거한다.
+
+**요청 (application/json)**
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | `text` | string | 조건부 | 프로젝트 설명 자유 텍스트 |
 | `features` | string[] | ✅ | 주요 기능 태그 (1~3개) |
-| `files` | File[] | 선택 | 첨부 파일 목록 |
+| `file_paths` | string[] | 선택 | Supabase Storage 파일 경로 목록 |
 | `interview_answers` | object[] | 선택 | Step 2 질문 응답 목록 `[{"id": "q1", "answer": "Slack 채널"}, ...]` |
-| `outputs` | string[] | 선택 | 생성할 Output 목록 (기본값: 전체) |
+| `output_type` | string | ✅ | 생성할 Output 종류 (`prd` \| `spec` \| `userflow` \| `wireframe`) |
+| `request_id` | string | 선택 | 이미 생성된 요청에 이어서 생성할 때 전달 (없으면 새 요청 생성) |
+| `prd_content` | string | 조건부 | `output_type`이 `spec`일 때 필수 |
+| `spec_content` | string | 조건부 | `output_type`이 `userflow`일 때 필수 |
+| `userflow_content` | string | 조건부 | `output_type`이 `wireframe`일 때 필수 |
 
 **응답 (SSE: text/event-stream)**
 
 ```
+event: request_created
+data: {"request_id": "<신규 생성된 요청 ID>"}
+
 event: prd_start
 data: {}
 
@@ -435,27 +464,72 @@ data: {"content": "## 개요\n..."}
 event: prd_done
 data: {"content": "<PRD 전체 마크다운>"}
 
-event: spec_start
-data: {}
-
-event: spec_chunk
-data: {"content": "..."}
-
-event: spec_done
-data: {"content": "<기능명세서 JSON>"}
-
-event: userflow_done
-data: {"content": "<Mermaid 코드>"}
-
-event: wireframe_done
-data: {"content": "<와이어프레임 HTML>"}
-
 event: error
-data: {"output_type": "wireframe", "message": "생성 실패: ..."}
+data: {"output_type": "prd", "message": "생성 실패: ..."}
 
 event: complete
 data: {}
 ```
+
+`request_created` 이벤트는 `request_id`를 전달하지 않은 최초 호출(PRD 생성)에서만 발생한다. 이후 단계는 항상 같은 `request_id`를 전달하여 동일 요청에 이어 붙인다.
+
+---
+
+### 5.4 GET `/api/requests`
+
+전체 사용자의 요청 이력을 최신순으로 조회한다 (요청자/솔루션 기획자 구분 없이 로그인한 사용자라면 전체 공개, v1.5에서 결정).
+
+**응답 (application/json)**
+
+```json
+[
+  {
+    "id": "<request_id>",
+    "text": "...",
+    "features": ["..."],
+    "created_at": "2026-06-25T00:22:30Z",
+    "completed_outputs": ["prd", "spec"]
+  }
+]
+```
+
+### 5.5 GET `/api/requests/{request_id}`
+
+**응답 (application/json)**
+
+```json
+{
+  "id": "<request_id>",
+  "user_id": "<user_id>",
+  "text": "...",
+  "features": ["..."],
+  "interview_answers": [{"id": "q1", "answer": "Slack 채널"}],
+  "file_paths": ["..."],
+  "created_at": "2026-06-25T00:22:30Z",
+  "outputs": [
+    {"type": "prd", "content": {"content": "<마크다운>"}, "created_at": "..."}
+  ]
+}
+```
+
+### 5.6 PATCH `/api/requests/{request_id}` (v1.6 신규)
+
+요청 이력에서 원본 입력(텍스트/기능 태그/첨부 파일)을 수정한다. 수정된 입력으로는 기존에 생성된 PRD~와이어프레임이 더 이상 유효하지 않으므로, 저장된 Output을 전부 삭제한다 — 사용자는 PRD부터 다시 생성해야 한다.
+
+**요청 (application/json)**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `text` | string | 조건부 | 수정된 자유 텍스트 |
+| `features` | string[] | ✅ | 수정된 주요 기능 태그 |
+| `file_paths` | string[] | 선택 | 수정된 첨부 파일 경로 목록 |
+| `interview_answers` | object[] | 선택 | Step 2 질문 응답 (보통 기존 값 유지) |
+
+**응답:** 5.5와 동일한 형식 (단, `outputs`는 항상 빈 배열).
+
+### 5.7 DELETE `/api/requests/{request_id}` (v1.6 신규)
+
+요청과 연결된 모든 Output을 삭제한다. 응답 본문 없음 (204 No Content).
 
 ---
 
@@ -687,6 +761,8 @@ JSON 외의 다른 텍스트는 출력하지 마세요.
 - 노드 ID는 영문 알파벳+숫자 조합 (예: A1, B2)
 - 노드 텍스트는 한국어
 - 분기(조건)는 菱形 노드로 표현
+- 엣지 라벨(예: -->|라벨|)은 한 줄로 작성하고 파이프(|)나 줄바꿈을 포함하지 않는다
+- 노드 텍스트(대괄호 [] 안)에 경로나 URL처럼 슬래시(/)가 포함되면 큰따옴표로 감싼다 (예: D3["/admin/login 으로 리다이렉트"])
 - 코드 블록(```mermaid ... ```) 형식으로 출력
 
 예시:
@@ -795,13 +871,19 @@ backend/migrations/
 |--------|---------|------|
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | Anthropic Claude API 키 |
 | `CLAUDE_MODEL` | `claude-sonnet-4-6` | 사용 Claude 모델명 |
-| `MAX_TOKENS` | `4096` | Claude 응답 최대 토큰 수 |
+| `MAX_TOKENS` | `32000` | Claude 응답 최대 토큰 수 (v1.5: 실측 truncation으로 4096→32000 상향) |
 | `MAX_FILE_SIZE_MB` | `200` | 파일당 최대 업로드 크기 (MB) |
 | `MAX_TOTAL_FILE_SIZE_MB` | `1024` | 전체 파일 최대 업로드 크기 (MB) |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | CORS 허용 Origin |
 | `SUPABASE_URL` | `https://xxxx.supabase.co` | Supabase 프로젝트 URL |
 | `SUPABASE_KEY` | `eyJ...` | Supabase 서비스 롤 키 |
 | `ENV` | `development` | 실행 환경 (`development` / `production`) |
+| `ENABLE_WIREFRAME` | `true` | 와이어프레임 생성 활성화 여부 (v1.8: MVP 배포 시 `false`) |
+| `SUPABASE_DB_HOST` | `aws-0-xxxx.pooler.supabase.com` | DB 마이그레이션용 직접 Postgres 연결 (Session pooler) |
+| `SUPABASE_DB_PORT` | `5432` | DB 마이그레이션용 포트 |
+| `SUPABASE_DB_NAME` | `postgres` | DB 마이그레이션용 데이터베이스명 |
+| `SUPABASE_DB_USER` | `postgres.xxxx` | DB 마이그레이션용 사용자명 |
+| `SUPABASE_DB_PASSWORD` | - | DB 마이그레이션용 비밀번호 |
 
 ### 8.2 Frontend (`.env.local`)
 
@@ -810,6 +892,7 @@ backend/migrations/
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | FastAPI 백엔드 베이스 URL |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxx.supabase.co` | Supabase 프로젝트 URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` | Supabase 익명 키 (프론트엔드용) |
+| `NEXT_PUBLIC_ENABLE_WIREFRAME` | `true` | 와이어프레임 탭/생성 버튼 노출 여부 (v1.8: MVP 배포 시 `false`) |
 
 ---
 
