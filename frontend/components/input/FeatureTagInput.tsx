@@ -37,7 +37,7 @@ export default function FeatureTagInput({
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-gray-700">
-        주요 기능 태그 ({tags.length}, 필수)
+        주요 기능 태그 (최소 1개 필수, 개수 제한 없음 · 현재 {tags.length}개)
       </label>
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-gray-300 px-3 py-2">
         {tags.map((tag) => (
