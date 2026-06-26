@@ -12,7 +12,13 @@ import InterviewStep from "@/components/interview/InterviewStep";
 import type { Question, Answer } from "@/components/interview/QuestionCard";
 import RequesterOutputView from "@/components/requester/RequesterOutputView";
 import { createClient } from "@/lib/supabase";
-import { fetchInterviewQuestions, confirmRequest, deleteRequest, type SummaryContent } from "@/lib/api";
+import {
+  fetchInterviewQuestions,
+  confirmRequest,
+  updateRequest,
+  updateSummary,
+  type SummaryContent,
+} from "@/lib/api";
 import { useGenerationFlow } from "@/hooks/useGenerationFlow";
 import { useRouter } from "next/navigation";
 
@@ -33,6 +39,15 @@ export default function Home() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
 
+  const [editingOriginal, setEditingOriginal] = useState(false);
+  const [savingOriginal, setSavingOriginal] = useState(false);
+  const [originalEditError, setOriginalEditError] = useState<string | null>(null);
+  const [originalBackup, setOriginalBackup] = useState<{
+    text: string;
+    features: string[];
+    files: UploadedFile[];
+  } | null>(null);
+
   const generateStarted = useRef(false);
 
   function answerText(answer: Answer | undefined): string {
@@ -51,6 +66,7 @@ export default function Home() {
     generateError,
     runGenerate,
     resetGeneration,
+    setOutputContent,
   } = useGenerationFlow({
     text,
     features,
@@ -114,23 +130,61 @@ export default function Home() {
     generateStarted.current = false;
   }
 
-  async function handleEditFromStep3() {
-    if (requestId) {
-      try {
-        await deleteRequest(requestId);
-      } catch {
-        // 미확정 임시 요청 삭제 실패는 무시하고 편집으로 진행
-      }
+  function handleOpenEditOriginal() {
+    setOriginalBackup({ text, features, files });
+    setOriginalEditError(null);
+    setEditingOriginal(true);
+  }
+
+  function handleCancelEditOriginal() {
+    if (originalBackup) {
+      setText(originalBackup.text);
+      setFeatures(originalBackup.features);
+      setFiles(originalBackup.files);
     }
-    setStep(1);
-    resetGeneration();
-    generateStarted.current = false;
+    setOriginalEditError(null);
+    setEditingOriginal(false);
+  }
+
+  async function handleSaveEditOriginal() {
+    if (!requestId) return;
+    if (features.length === 0) {
+      setOriginalEditError("주요 기능 태그를 1개 이상 입력해주세요.");
+      return;
+    }
+    if (text.trim() === "" && files.length === 0) {
+      setOriginalEditError("자유 텍스트 또는 파일 중 하나 이상을 입력해주세요.");
+      return;
+    }
+
+    setSavingOriginal(true);
+    setOriginalEditError(null);
+    try {
+      await updateRequest(requestId, {
+        text,
+        features,
+        file_paths: files.map((f) => f.path),
+        interview_answers: interviewAnswers,
+      });
+      setEditingOriginal(false);
+      await runGenerate("summary");
+    } catch (err) {
+      setOriginalEditError(err instanceof Error ? err.message : "수정에 실패했습니다.");
+    } finally {
+      setSavingOriginal(false);
+    }
   }
 
   async function handleConfirm(confirmedFeatures: string[]) {
     if (!requestId) return;
     await confirmRequest(requestId, confirmedFeatures);
     setConfirmed(true);
+  }
+
+  async function handleSaveSummary(content: SummaryContent) {
+    if (!requestId) return;
+    const updated = await updateSummary(requestId, content);
+    setOutputContent("summary", JSON.stringify(updated));
   }
 
   return (
@@ -192,18 +246,59 @@ export default function Home() {
                   요청 이력에서 확인하기
                 </button>
               </div>
+            ) : editingOriginal ? (
+              <div className="flex flex-col gap-4">
+                <TextEditor value={text} onChange={setText} />
+                <FeatureTagInput tags={features} onChange={setFeatures} />
+                {userId && <FileUploader userId={userId} files={files} onChange={setFiles} />}
+                {originalEditError && <ErrorMessage message={originalEditError} />}
+                <p className="text-xs text-gray-400">
+                  저장하면 요청 내용을 기준으로 요약이 다시 생성됩니다.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveEditOriginal}
+                    disabled={savingOriginal}
+                    className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {savingOriginal ? "저장 중..." : "저장"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditOriginal}
+                    disabled={savingOriginal}
+                    className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
             ) : outputsState.summary?.status === "done" ? (
               <RequesterOutputView
+                key={outputsState.summary.content}
                 summary={JSON.parse(outputsState.summary.content) as SummaryContent}
                 status="drafting"
                 onConfirm={handleConfirm}
-                onEdit={handleEditFromStep3}
+                onEdit={handleOpenEditOriginal}
+                onSaveSummary={handleSaveSummary}
               />
+            ) : outputsState.summary?.status === "error" ? (
+              <div className="flex flex-col items-start gap-2">
+                <ErrorMessage message="요약 생성에 실패했습니다. 서버가 깨어나는 중일 수 있어요. 잠시 후 다시 시도해주세요." />
+                <button
+                  type="button"
+                  onClick={() => runGenerate("summary")}
+                  className="text-sm text-gray-500 underline"
+                >
+                  다시 시도
+                </button>
+              </div>
             ) : (
               <SkeletonLoader label="요청 내용을 요약하고 있습니다..." />
             )}
 
-            {!generating && !confirmed && (
+            {!generating && !confirmed && !editingOriginal && (
               <button
                 type="button"
                 onClick={resetAll}

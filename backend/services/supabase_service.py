@@ -191,6 +191,13 @@ def confirm_request(request_id: str, confirmed_features: list[str]) -> dict:
     }
 
 
+def update_summary(request_id: str, content: dict) -> dict:
+    if get_request_status(request_id) != "drafting":
+        raise HTTPException(status_code=400, detail="확정된 요청은 요약을 수정할 수 없습니다.")
+    save_output(request_id, "summary", content)
+    return content
+
+
 def update_status(request_id: str, status: str) -> dict:
     if status not in ADMIN_STATUSES:
         raise HTTPException(status_code=400, detail=f"허용되지 않은 상태값: {status}")

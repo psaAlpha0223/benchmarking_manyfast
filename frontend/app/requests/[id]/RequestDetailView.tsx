@@ -1,20 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import TextEditor from "@/components/input/TextEditor";
 import FeatureTagInput from "@/components/input/FeatureTagInput";
 import FileUploader, { type UploadedFile } from "@/components/input/FileUploader";
 import ErrorMessage from "@/components/common/ErrorMessage";
+import SkeletonLoader from "@/components/common/SkeletonLoader";
 import GenerationPanel from "@/components/output/GenerationPanel";
 import RequesterOutputView from "@/components/requester/RequesterOutputView";
-import { useGenerationFlow, type OutputState } from "@/hooks/useGenerationFlow";
+import { useGenerationFlow, OUTPUT_ORDER, type OutputState } from "@/hooks/useGenerationFlow";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
   deleteRequest,
   updateRequest,
   confirmRequest,
   updateRequestStatus,
+  updateSummary,
   type RequestDetail,
   type OutputType,
   type SummaryContent,
@@ -60,13 +62,12 @@ export default function RequestDetailView({
   const [statusChanging, setStatusChanging] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
 
-  const summaryOutput = detail.outputs.find((o) => o.type === "summary");
-  const summaryContent = summaryOutput?.content as SummaryContent | undefined;
-
   const initialOutputsState: Partial<Record<OutputType, OutputState>> = {};
   detail.outputs.forEach((o) => {
-    if (o.type === "summary") return;
-    initialOutputsState[o.type] = { status: "done", content: (o.content as { content: string }).content };
+    initialOutputsState[o.type] = {
+      status: "done",
+      content: o.type === "summary" ? JSON.stringify(o.content) : (o.content as { content: string }).content,
+    };
   });
 
   const {
@@ -87,10 +88,24 @@ export default function RequestDetailView({
     { requestId: detail.id, outputsState: initialOutputsState }
   );
 
+  const summaryState = outputsState.summary;
+  const summaryContent =
+    summaryState?.status === "done" ? (JSON.parse(summaryState.content) as SummaryContent) : undefined;
+  const summaryGenerating = summaryState?.status === "pending" || summaryState?.status === "streaming";
+
+  // 수정 저장 시 부모(app/requests/[id]/page.tsx)가 key={version}로 이 컴포넌트를 통째로 리마운트한다.
+  // 그래서 마운트 시점에 summary가 없으면(=방금 막 수정 저장됨) 새 detail 기준으로 요약을 자동 재생성한다.
+  useEffect(() => {
+    if (detail.status === "drafting" && !summaryState) {
+      runGenerate("summary");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // useGenerationFlow의 nextOutputType은 "이미 뭔가 done"인 경우에만 다음 단계를 알려준다.
   // 이 화면은 수정 직후 outputs가 모두 비워질 수 있으므로, 비어있을 때는 PRD부터 시작하도록 보정한다.
   const effectiveNextOutputType: OutputType | null =
-    nextOutputType ?? (Object.keys(outputsState).length === 0 ? "prd" : null);
+    nextOutputType ?? (OUTPUT_ORDER.every((type) => !outputsState[type]) ? "prd" : null);
 
   async function handleSave() {
     if (features.length === 0) {
@@ -130,6 +145,14 @@ export default function RequestDetailView({
   async function handleConfirm(confirmedFeatures: string[]) {
     const result = await confirmRequest(detail.id, confirmedFeatures);
     onUpdated({ ...detail, status: result.status, confirmed_features: result.confirmed_features });
+  }
+
+  async function handleSaveSummary(content: SummaryContent) {
+    await updateSummary(detail.id, content);
+    onUpdated({
+      ...detail,
+      outputs: detail.outputs.map((o) => (o.type === "summary" ? { ...o, content } : o)),
+    });
   }
 
   async function handleStatusChange(newStatus: string) {
@@ -195,7 +218,7 @@ export default function RequestDetailView({
             {userId && <FileUploader userId={userId} files={files} onChange={setFiles} />}
             {saveError && <ErrorMessage message={saveError} />}
             <p className="text-xs text-gray-400">
-              저장하면 이 요청에 이미 생성된 기능명세서/유저플로우/와이어프레임은 모두 삭제되고 PRD부터 다시 생성해야 합니다.
+              저장하면 요약이 새 내용을 기준으로 자동으로 다시 생성됩니다. 이미 생성된 PRD/기능명세서/유저플로우/와이어프레임은 모두 삭제되며, 어드민이 PRD부터 다시 생성해야 합니다.
             </p>
             <div className="flex gap-2">
               <button
@@ -221,11 +244,31 @@ export default function RequestDetailView({
 
       {!editing && summaryContent && (
         <RequesterOutputView
+          key={summaryState!.content}
           summary={summaryContent}
           status={detail.status}
           onConfirm={handleConfirm}
           onEdit={() => setEditing(true)}
+          onSaveSummary={isAdmin ? undefined : handleSaveSummary}
+          forceReadOnly={Boolean(isAdmin)}
         />
+      )}
+
+      {!editing && !summaryContent && summaryGenerating && (
+        <SkeletonLoader label="요약을 다시 생성하고 있습니다..." />
+      )}
+
+      {!editing && !summaryContent && summaryState?.status === "error" && (
+        <div className="flex flex-col items-start gap-2">
+          <ErrorMessage message="요약 생성에 실패했습니다. 서버가 깨어나는 중일 수 있어요. 잠시 후 다시 시도해주세요." />
+          <button
+            type="button"
+            onClick={() => runGenerate("summary")}
+            className="text-sm text-gray-500 underline"
+          >
+            다시 시도
+          </button>
+        </div>
       )}
 
       {!editing && isAdmin && (

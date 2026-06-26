@@ -35,7 +35,7 @@ export function useGenerationFlow(
   async function runGenerate(outputType: OutputType) {
     setGenerating(true);
     setGenerateError(null);
-    setActiveOutputTab(outputType);
+    if (outputType !== "summary") setActiveOutputTab(outputType);
     setOutputsState((prev) => ({ ...prev, [outputType]: { status: "pending", content: "" } }));
 
     try {
@@ -85,9 +85,17 @@ export function useGenerationFlow(
       );
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : "기획서 생성에 실패했습니다.");
+      setOutputsState((prev) => ({
+        ...prev,
+        [outputType]: { ...(prev[outputType] ?? { content: "" }), status: "error" },
+      }));
     } finally {
       setGenerating(false);
     }
+  }
+
+  function setOutputContent(outputType: OutputType, content: string) {
+    setOutputsState((prev) => ({ ...prev, [outputType]: { status: "done", content } }));
   }
 
   function resetGeneration() {
@@ -115,6 +123,7 @@ export function useGenerationFlow(
     generateError,
     runGenerate,
     resetGeneration,
+    setOutputContent,
     nextOutputType,
   };
 }

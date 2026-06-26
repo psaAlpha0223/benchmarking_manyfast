@@ -15,7 +15,7 @@ export default function ConfirmActions({
         disabled={confirming}
         className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
       >
-        수정할게요 ✎
+        이전 요청 내용 수정하기
       </button>
       <button
         type="button"

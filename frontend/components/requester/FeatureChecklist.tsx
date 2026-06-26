@@ -7,15 +7,21 @@ export default function FeatureChecklist({
   items,
   onChange,
   disabled,
+  editableText,
 }: {
   items: FeatureChecklistItem[];
   onChange: (items: FeatureChecklistItem[]) => void;
   disabled?: boolean;
+  editableText?: boolean;
 }) {
   const [draft, setDraft] = useState("");
 
   function toggle(id: string) {
     onChange(items.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)));
+  }
+
+  function updateText(id: string, field: "name" | "description", value: string) {
+    onChange(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   }
 
   function remove(id: string) {
@@ -54,8 +60,25 @@ export default function FeatureChecklist({
               className="mt-1"
             />
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">{item.name}</p>
-              <p className="text-xs text-gray-500">{item.description}</p>
+              {editableText ? (
+                <div className="flex flex-col gap-1">
+                  <input
+                    value={item.name}
+                    onChange={(e) => updateText(item.id, "name", e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 outline-none"
+                  />
+                  <input
+                    value={item.description}
+                    onChange={(e) => updateText(item.id, "description", e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-500 outline-none"
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                  <p className="text-xs text-gray-500">{item.description}</p>
+                </>
+              )}
             </div>
             {!disabled && (
               <button

@@ -10,6 +10,7 @@ from models.schemas import (
     StatusUpdatePayload,
     StatusUpdateResponse,
     UpdateRequestPayload,
+    UpdateSummaryPayload,
 )
 from services import supabase_service
 
@@ -48,6 +49,16 @@ def update_request(
 def delete_request(request_id: str, authorization: Optional[str] = Header(default=None)):
     supabase_service.get_user_id_from_token(authorization)
     supabase_service.delete_request(request_id)
+
+
+@router.patch("/api/requests/{request_id}/summary", response_model=UpdateSummaryPayload)
+def update_summary(
+    request_id: str,
+    payload: UpdateSummaryPayload,
+    authorization: Optional[str] = Header(default=None),
+):
+    supabase_service.get_user_id_from_token(authorization)
+    return supabase_service.update_summary(request_id, payload.model_dump())
 
 
 @router.post("/api/requests/{request_id}/confirm", response_model=ConfirmResponse)

@@ -88,3 +88,22 @@ class StatusUpdatePayload(BaseModel):
 class StatusUpdateResponse(BaseModel):
     request_id: str
     status: str
+
+
+class SummaryCardPayload(BaseModel):
+    service_name: str
+    purpose: str
+    target_users: str
+    key_features: list[str]
+
+
+class FeatureChecklistItemPayload(BaseModel):
+    id: str
+    name: str
+    description: str
+    checked: bool
+
+
+class UpdateSummaryPayload(BaseModel):
+    summary_card: SummaryCardPayload
+    feature_checklist: list[FeatureChecklistItemPayload]

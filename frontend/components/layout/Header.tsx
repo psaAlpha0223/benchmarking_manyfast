@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { useUserRole } from "@/hooks/useUserRole";
 
-const NAV_ITEMS = [
+const ALL_NAV_ITEMS = [
   { href: "/", label: "새 요청" },
   { href: "/requests", label: "요청 이력" },
 ];
@@ -12,6 +13,8 @@ const NAV_ITEMS = [
 export default function Header({ email }: { email: string | null }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { isAdmin } = useUserRole();
+  const navItems = isAdmin ? ALL_NAV_ITEMS.filter((item) => item.href !== "/") : ALL_NAV_ITEMS;
 
   async function handleLogout() {
     const supabase = createClient();
@@ -25,7 +28,7 @@ export default function Header({ email }: { email: string | null }) {
       <div className="flex items-center gap-8">
         <span className="py-4 text-sm font-bold text-gray-900">AI 기획 자동화</span>
         <nav className="flex h-full gap-6">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link

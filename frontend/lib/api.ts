@@ -218,6 +218,23 @@ export async function confirmRequest(
   return res.json();
 }
 
+export async function updateSummary(
+  requestId: string,
+  content: SummaryContent
+): Promise<SummaryContent> {
+  const headers = await authHeader();
+  const res = await fetch(`${API_BASE}/api/requests/${requestId}/summary`, {
+    method: "PATCH",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify(content),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "요약 수정에 실패했습니다.");
+  }
+  return res.json();
+}
+
 export async function updateRequestStatus(
   requestId: string,
   status: string
