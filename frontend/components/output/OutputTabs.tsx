@@ -7,6 +7,7 @@ import WireframeView from "./WireframeView";
 import SkeletonLoader from "@/components/common/SkeletonLoader";
 
 const LABELS: Record<OutputType, string> = {
+  summary: "요약",
   prd: "PRD",
   spec: "기능명세서",
   userflow: "유저플로우",

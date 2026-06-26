@@ -1,8 +1,16 @@
 from typing import Optional
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException
 
-from models.schemas import RequestDetail, RequestSummary, UpdateRequestPayload
+from models.schemas import (
+    ConfirmPayload,
+    ConfirmResponse,
+    RequestDetail,
+    RequestSummary,
+    StatusUpdatePayload,
+    StatusUpdateResponse,
+    UpdateRequestPayload,
+)
 from services import supabase_service
 
 router = APIRouter()
@@ -40,3 +48,25 @@ def update_request(
 def delete_request(request_id: str, authorization: Optional[str] = Header(default=None)):
     supabase_service.get_user_id_from_token(authorization)
     supabase_service.delete_request(request_id)
+
+
+@router.post("/api/requests/{request_id}/confirm", response_model=ConfirmResponse)
+def confirm_request(
+    request_id: str,
+    payload: ConfirmPayload,
+    authorization: Optional[str] = Header(default=None),
+):
+    supabase_service.get_user_id_from_token(authorization)
+    return supabase_service.confirm_request(request_id, payload.confirmed_features)
+
+
+@router.patch("/api/requests/{request_id}/status", response_model=StatusUpdateResponse)
+def update_status(
+    request_id: str,
+    payload: StatusUpdatePayload,
+    authorization: Optional[str] = Header(default=None),
+):
+    user = supabase_service.get_user_from_token(authorization)
+    if not (user.user_metadata or {}).get("is_admin"):
+        raise HTTPException(status_code=403, detail="어드민만 상태를 변경할 수 있습니다.")
+    return supabase_service.update_status(request_id, payload.status)

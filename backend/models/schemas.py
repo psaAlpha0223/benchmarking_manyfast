@@ -29,7 +29,7 @@ class GenerateRequest(BaseModel):
     features: list[str]
     file_paths: Optional[list[str]] = None
     interview_answers: Optional[list[InterviewAnswer]] = None
-    output_type: str  # "prd" | "spec" | "userflow" | "wireframe"
+    output_type: str  # "summary" | "prd" | "spec" | "userflow" | "wireframe"
     request_id: Optional[str] = None
     prd_content: Optional[str] = None
     spec_content: Optional[str] = None
@@ -40,6 +40,7 @@ class RequestSummary(BaseModel):
     id: str
     text: Optional[str] = None
     features: list[str]
+    status: str
     created_at: str
     completed_outputs: list[str]
 
@@ -55,6 +56,8 @@ class RequestDetail(BaseModel):
     user_id: str
     text: Optional[str] = None
     features: list[str]
+    confirmed_features: Optional[list[str]] = None
+    status: str
     interview_answers: Optional[list[dict]] = None
     file_paths: Optional[list[str]] = None
     created_at: str
@@ -66,3 +69,22 @@ class UpdateRequestPayload(BaseModel):
     features: list[str]
     file_paths: Optional[list[str]] = None
     interview_answers: Optional[list[InterviewAnswer]] = None
+
+
+class ConfirmPayload(BaseModel):
+    confirmed_features: list[str]
+
+
+class ConfirmResponse(BaseModel):
+    request_id: str
+    status: str
+    confirmed_features: list[str]
+
+
+class StatusUpdatePayload(BaseModel):
+    status: str  # "in_review" | "completed"
+
+
+class StatusUpdateResponse(BaseModel):
+    request_id: str
+    status: str

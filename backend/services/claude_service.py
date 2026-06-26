@@ -29,6 +29,10 @@ def _max_tokens() -> int:
     return int(os.environ.get("MAX_TOKENS", 4096))
 
 
+def _max_tokens_summary() -> int:
+    return int(os.environ.get("MAX_TOKENS_SUMMARY", 1024))
+
+
 def _build_content_blocks(prompt_text: str, image_blocks: Optional[list[dict]]) -> list[dict]:
     blocks = []
     for img in image_blocks or []:
@@ -54,6 +58,20 @@ def generate_questions(prompt_text: str, image_blocks: Optional[list[dict]] = No
         temperature=0,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_content_blocks(prompt_text, image_blocks)}],
+    )
+    raw = message.content[0].text.strip()
+    raw = re.sub(r"^```(json)?|```$", "", raw, flags=re.MULTILINE).strip()
+    return json.loads(raw)
+
+
+def generate_summary(prompt_text: str) -> dict:
+    client = get_client()
+    message = client.messages.create(
+        model=_model(),
+        max_tokens=_max_tokens_summary(),
+        temperature=0,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": _build_content_blocks(prompt_text, None)}],
     )
     raw = message.content[0].text.strip()
     raw = re.sub(r"^```(json)?|```$", "", raw, flags=re.MULTILINE).strip()

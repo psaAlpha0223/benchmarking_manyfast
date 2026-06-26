@@ -9,12 +9,20 @@ import { createClient } from "@/lib/supabase";
 import { deleteRequest, fetchRequests, type RequestSummary, type OutputType } from "@/lib/api";
 
 const OUTPUT_LABELS: Record<OutputType, string> = {
+  summary: "요약",
   prd: "PRD",
   spec: "기능명세서",
   userflow: "유저플로우",
   wireframe: "와이어프레임",
 };
-const OUTPUT_ORDER: OutputType[] = ["prd", "spec", "userflow", "wireframe"];
+const OUTPUT_ORDER: OutputType[] = ["summary", "prd", "spec", "userflow", "wireframe"];
+
+const STATUS_LABELS: Record<string, string> = {
+  drafting: "수정 중",
+  confirmed: "확정됨",
+  in_review: "검토 중",
+  completed: "완료",
+};
 
 export default function RequestsPage() {
   const [email, setEmail] = useState<string | null>(null);
@@ -70,6 +78,9 @@ export default function RequestsPage() {
                   {req.text || "(텍스트 입력 없음)"}
                 </p>
                 <div className="flex shrink-0 items-center gap-3">
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    {STATUS_LABELS[req.status] ?? req.status}
+                  </span>
                   <span className="text-xs text-gray-400">
                     {new Date(req.created_at).toLocaleString("ko-KR")}
                   </span>

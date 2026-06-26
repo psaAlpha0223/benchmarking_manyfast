@@ -4,6 +4,7 @@ import type { OutputType } from "@/lib/api";
 import type { OutputState } from "@/hooks/useGenerationFlow";
 
 const NEXT_BUTTON_LABEL: Record<OutputType, string> = {
+  summary: "요약 생성하기",
   prd: "PRD 생성하기",
   spec: "기능명세서 생성하기",
   userflow: "유저플로우 생성하기",

@@ -35,7 +35,26 @@ export async function fetchInterviewQuestions(payload: {
   return data.questions;
 }
 
-export type OutputType = "prd" | "spec" | "userflow" | "wireframe";
+export type OutputType = "summary" | "prd" | "spec" | "userflow" | "wireframe";
+
+export interface SummaryCard {
+  service_name: string;
+  purpose: string;
+  target_users: string;
+  key_features: string[];
+}
+
+export interface FeatureChecklistItem {
+  id: string;
+  name: string;
+  description: string;
+  checked: boolean;
+}
+
+export interface SummaryContent {
+  summary_card: SummaryCard;
+  feature_checklist: FeatureChecklistItem[];
+}
 
 export interface GeneratePayload {
   text: string;
@@ -50,7 +69,7 @@ export interface GeneratePayload {
 }
 
 export interface GenerateEventData {
-  content?: string;
+  content?: string | SummaryContent;
   output_type?: string;
   message?: string;
   request_id?: string;
@@ -98,6 +117,7 @@ export interface RequestSummary {
   id: string;
   text: string | null;
   features: string[];
+  status: string;
   created_at: string;
   completed_outputs: OutputType[];
 }
@@ -107,10 +127,16 @@ export interface RequestDetail {
   user_id: string;
   text: string | null;
   features: string[];
+  confirmed_features: string[] | null;
+  status: string;
   interview_answers: { id: string; answer: string }[] | null;
   file_paths: string[] | null;
   created_at: string;
-  outputs: { type: OutputType; content: { content: string }; created_at: string }[];
+  outputs: {
+    type: OutputType;
+    content: { content: string } | SummaryContent;
+    created_at: string;
+  }[];
 }
 
 export async function fetchRequests(): Promise<RequestSummary[]> {
@@ -167,4 +193,44 @@ export async function deleteRequest(requestId: string): Promise<void> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "요청 삭제에 실패했습니다.");
   }
+}
+
+export interface ConfirmResponse {
+  request_id: string;
+  status: string;
+  confirmed_features: string[];
+}
+
+export async function confirmRequest(
+  requestId: string,
+  confirmedFeatures: string[]
+): Promise<ConfirmResponse> {
+  const headers = await authHeader();
+  const res = await fetch(`${API_BASE}/api/requests/${requestId}/confirm`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmed_features: confirmedFeatures }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "확정 처리에 실패했습니다.");
+  }
+  return res.json();
+}
+
+export async function updateRequestStatus(
+  requestId: string,
+  status: string
+): Promise<{ request_id: string; status: string }> {
+  const headers = await authHeader();
+  const res = await fetch(`${API_BASE}/api/requests/${requestId}/status`, {
+    method: "PATCH",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "상태 변경에 실패했습니다.");
+  }
+  return res.json();
 }

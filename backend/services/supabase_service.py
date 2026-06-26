@@ -5,7 +5,8 @@ from fastapi import HTTPException
 from supabase import Client, create_client
 
 BUCKET = "request-files"
-OUTPUT_ORDER = ["prd", "spec", "userflow", "wireframe"]
+OUTPUT_ORDER = ["summary", "prd", "spec", "userflow", "wireframe"]
+ADMIN_STATUSES = {"in_review", "completed"}
 
 _client: Client | None = None
 
@@ -17,7 +18,7 @@ def get_client() -> Client:
     return _client
 
 
-def get_user_id_from_token(authorization: Optional[str]) -> str:
+def get_user_from_token(authorization: Optional[str]):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="인증 토큰이 필요합니다.")
     token = authorization.removeprefix("Bearer ")
@@ -27,7 +28,16 @@ def get_user_id_from_token(authorization: Optional[str]) -> str:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
     if not response or not response.user:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
-    return response.user.id
+    return response.user
+
+
+def get_user_id_from_token(authorization: Optional[str]) -> str:
+    return get_user_from_token(authorization).id
+
+
+def is_admin_user(authorization: Optional[str]) -> bool:
+    user = get_user_from_token(authorization)
+    return bool((user.user_metadata or {}).get("is_admin"))
 
 
 def download_file(path: str) -> bytes:
@@ -74,7 +84,7 @@ def list_requests() -> list[dict]:
     requests = (
         get_client()
         .table("requests")
-        .select("id, text, features, created_at")
+        .select("id, text, features, status, created_at")
         .order("created_at", desc=True)
         .execute()
         .data
@@ -100,6 +110,13 @@ def list_requests() -> list[dict]:
             types_by_request.get(r["id"], set()), key=OUTPUT_ORDER.index
         )
     return requests
+
+
+def get_request_status(request_id: str) -> str:
+    result = get_client().table("requests").select("status").eq("id", request_id).execute().data
+    if not result:
+        raise HTTPException(status_code=404, detail="요청을 찾을 수 없습니다.")
+    return result[0]["status"]
 
 
 def get_request_detail(request_id: str) -> dict:
@@ -136,6 +153,8 @@ def update_request(
             "features": features,
             "interview_answers": interview_answers,
             "file_paths": file_paths,
+            "status": "drafting",
+            "confirmed_features": None,
         }
     ).eq("id", request_id).execute()
 
@@ -153,3 +172,33 @@ def delete_request(request_id: str) -> None:
 
     client.table("outputs").delete().eq("request_id", request_id).execute()
     client.table("requests").delete().eq("id", request_id).execute()
+
+
+def confirm_request(request_id: str, confirmed_features: list[str]) -> dict:
+    client = get_client()
+    existing = client.table("requests").select("id").eq("id", request_id).execute().data
+    if not existing:
+        raise HTTPException(status_code=404, detail="요청을 찾을 수 없습니다.")
+
+    client.table("requests").update(
+        {"status": "confirmed", "confirmed_features": confirmed_features}
+    ).eq("id", request_id).execute()
+
+    return {
+        "request_id": request_id,
+        "status": "confirmed",
+        "confirmed_features": confirmed_features,
+    }
+
+
+def update_status(request_id: str, status: str) -> dict:
+    if status not in ADMIN_STATUSES:
+        raise HTTPException(status_code=400, detail=f"허용되지 않은 상태값: {status}")
+
+    client = get_client()
+    existing = client.table("requests").select("id").eq("id", request_id).execute().data
+    if not existing:
+        raise HTTPException(status_code=404, detail="요청을 찾을 수 없습니다.")
+
+    client.table("requests").update({"status": status}).eq("id", request_id).execute()
+    return {"request_id": request_id, "status": status}

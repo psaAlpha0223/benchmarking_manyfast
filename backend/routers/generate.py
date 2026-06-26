@@ -6,10 +6,12 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
 from models.schemas import GenerateRequest
-from prompts import prd_prompt, spec_prompt, userflow_prompt, wireframe_prompt
+from prompts import prd_prompt, spec_prompt, summary_prompt, userflow_prompt, wireframe_prompt
 from services import claude_service, file_parser, supabase_service
 
 router = APIRouter()
+
+ADMIN_OUTPUT_TYPES = {"prd", "spec", "userflow", "wireframe"}
 
 
 def _wireframe_enabled() -> bool:
@@ -20,7 +22,22 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _require_confirmed(payload: GenerateRequest) -> None:
+    if payload.output_type not in ADMIN_OUTPUT_TYPES:
+        return
+    if not payload.request_id:
+        raise HTTPException(status_code=400, detail="먼저 요약을 생성하여 요청을 확정해야 합니다.")
+    status = supabase_service.get_request_status(payload.request_id)
+    if status != "confirmed":
+        raise HTTPException(
+            status_code=400, detail="요청자가 확정하기 전에는 해당 Output을 생성할 수 없습니다."
+        )
+
+
 def _build_prompt(payload: GenerateRequest, user_input: str, answers_text: str) -> str:
+    if payload.output_type == "summary":
+        return summary_prompt.build_prompt(payload.features, user_input, answers_text)
+
     if payload.output_type == "prd":
         return prd_prompt.build_prompt(payload.features, user_input, answers_text)
 
@@ -63,6 +80,18 @@ def _generate_stream(payload: GenerateRequest, user_id: str, prompt_text: str) -
 
     output_type = payload.output_type
 
+    if output_type == "summary":
+        yield _sse("summary_start", {})
+        try:
+            result = claude_service.generate_summary(prompt_text)
+        except Exception as exc:
+            yield _sse("error", {"output_type": "summary", "message": str(exc)})
+            return
+        supabase_service.save_output(request_id, "summary", result)
+        yield _sse("summary_done", {"content": result})
+        yield _sse("complete", {})
+        return
+
     yield _sse(f"{output_type}_start", {})
     chunks = []
     try:
@@ -82,6 +111,7 @@ def _generate_stream(payload: GenerateRequest, user_id: str, prompt_text: str) -
 @router.post("/api/generate")
 def generate(payload: GenerateRequest, authorization: Optional[str] = Header(default=None)):
     user_id = supabase_service.get_user_id_from_token(authorization)
+    _require_confirmed(payload)
 
     file_text, _ = file_parser.gather_file_context(payload.file_paths)
     user_input = "\n\n".join(filter(None, [payload.text, file_text]))

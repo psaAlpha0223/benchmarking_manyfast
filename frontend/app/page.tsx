@@ -10,14 +10,17 @@ import FeatureTagInput from "@/components/input/FeatureTagInput";
 import FileUploader, { type UploadedFile } from "@/components/input/FileUploader";
 import InterviewStep from "@/components/interview/InterviewStep";
 import type { Question, Answer } from "@/components/interview/QuestionCard";
-import GenerationPanel from "@/components/output/GenerationPanel";
+import RequesterOutputView from "@/components/requester/RequesterOutputView";
 import { createClient } from "@/lib/supabase";
-import { fetchInterviewQuestions } from "@/lib/api";
+import { fetchInterviewQuestions, confirmRequest, deleteRequest, type SummaryContent } from "@/lib/api";
 import { useGenerationFlow } from "@/hooks/useGenerationFlow";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -43,13 +46,11 @@ export default function Home() {
 
   const {
     outputsState,
-    activeOutputTab,
-    setActiveOutputTab,
+    requestId,
     generating,
     generateError,
     runGenerate,
     resetGeneration,
-    nextOutputType,
   } = useGenerationFlow({
     text,
     features,
@@ -96,7 +97,7 @@ export default function Home() {
   useEffect(() => {
     if (step === 3 && !generateStarted.current) {
       generateStarted.current = true;
-      runGenerate("prd");
+      runGenerate("summary");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
@@ -108,8 +109,28 @@ export default function Home() {
     setFiles([]);
     setQuestions([]);
     setAnswers({});
+    setConfirmed(false);
     resetGeneration();
     generateStarted.current = false;
+  }
+
+  async function handleEditFromStep3() {
+    if (requestId) {
+      try {
+        await deleteRequest(requestId);
+      } catch {
+        // 미확정 임시 요청 삭제 실패는 무시하고 편집으로 진행
+      }
+    }
+    setStep(1);
+    resetGeneration();
+    generateStarted.current = false;
+  }
+
+  async function handleConfirm(confirmedFeatures: string[]) {
+    if (!requestId) return;
+    await confirmRequest(requestId, confirmedFeatures);
+    setConfirmed(true);
   }
 
   return (
@@ -153,20 +174,36 @@ export default function Home() {
         )}
 
         {step === 3 && (
-          <div className="flex w-full max-w-6xl flex-col gap-4">
-            <h1 className="text-lg font-semibold text-gray-900">기획서 생성</h1>
+          <div className="flex w-full max-w-3xl flex-col gap-4">
+            <h1 className="text-lg font-semibold text-gray-900">요청 확인</h1>
 
-            <GenerationPanel
-              outputsState={outputsState}
-              activeOutputTab={activeOutputTab}
-              setActiveOutputTab={setActiveOutputTab}
-              generating={generating}
-              generateError={generateError}
-              nextOutputType={nextOutputType}
-              runGenerate={runGenerate}
-            />
+            {generateError && <ErrorMessage message={generateError} />}
 
-            {!generating && (
+            {confirmed ? (
+              <div className="rounded-md border border-gray-200 p-6 text-center">
+                <p className="text-sm text-gray-700">
+                  확정되었습니다. 인텔리전스팀이 검토를 진행할 예정입니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/requests")}
+                  className="mt-4 text-sm text-gray-500 underline"
+                >
+                  요청 이력에서 확인하기
+                </button>
+              </div>
+            ) : outputsState.summary?.status === "done" ? (
+              <RequesterOutputView
+                summary={JSON.parse(outputsState.summary.content) as SummaryContent}
+                status="drafting"
+                onConfirm={handleConfirm}
+                onEdit={handleEditFromStep3}
+              />
+            ) : (
+              <SkeletonLoader label="요청 내용을 요약하고 있습니다..." />
+            )}
+
+            {!generating && !confirmed && (
               <button
                 type="button"
                 onClick={resetAll}

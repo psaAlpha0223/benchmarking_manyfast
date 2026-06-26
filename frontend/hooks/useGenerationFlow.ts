@@ -68,7 +68,11 @@ export function useGenerationFlow(
                   ...prev,
                   [type]: { ...current, content: current.content + (data.content ?? "") },
                 };
-              return { ...prev, [type]: { status: "done", content: data.content ?? "" } };
+              const doneContent =
+                typeof data.content === "string"
+                  ? data.content
+                  : JSON.stringify(data.content ?? "");
+              return { ...prev, [type]: { status: "done", content: doneContent } };
             });
           } else if (event === "error" && data.output_type) {
             const errType = data.output_type as OutputType;
