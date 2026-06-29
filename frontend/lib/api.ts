@@ -1,41 +1,40 @@
-import { createClient } from "./supabase";
-
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-async function authHeader(): Promise<Record<string, string>> {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
-  return { Authorization: `Bearer ${data.session?.access_token ?? ""}` };
+export interface PainPoint {
+  feature_request: string;
+  current_process: string;
+  pain_points: string[];
+  pain_points_other: string;
+  desired_change: string;
+  required_outputs: string[];
+  required_outputs_other: string;
+  current_tools: string[];
+  current_tools_other: string;
+  input_data_types: string[];
+  input_data_types_other: string;
+  sample_link: string;
+  dev_preference: string[];
+  constraints: string;
 }
 
-export interface InterviewQuestion {
-  id: string;
-  question: string;
-  options: string[];
-}
+export const EMPTY_PAIN_POINT: PainPoint = {
+  feature_request: "",
+  current_process: "",
+  pain_points: [],
+  pain_points_other: "",
+  desired_change: "",
+  required_outputs: [],
+  required_outputs_other: "",
+  current_tools: [],
+  current_tools_other: "",
+  input_data_types: [],
+  input_data_types_other: "",
+  sample_link: "",
+  dev_preference: [],
+  constraints: "",
+};
 
-export async function fetchInterviewQuestions(payload: {
-  text: string;
-  features: string[];
-  file_paths: string[];
-}): Promise<InterviewQuestion[]> {
-  const headers = await authHeader();
-  const res = await fetch(`${API_BASE}/api/interview`, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "질문 생성에 실패했습니다.");
-  }
-
-  const data = await res.json();
-  return data.questions;
-}
-
-export type OutputType = "summary" | "prd" | "spec" | "userflow" | "wireframe";
+export type OutputType = "summary";
 
 export interface SummaryCard {
   service_name: string;
@@ -57,15 +56,12 @@ export interface SummaryContent {
 }
 
 export interface GeneratePayload {
-  text: string;
-  features: string[];
+  pain_point: PainPoint;
   file_paths: string[];
-  interview_answers: { id: string; answer: string }[];
   output_type: OutputType;
   request_id?: string;
-  prd_content?: string;
-  spec_content?: string;
-  userflow_content?: string;
+  team?: string;
+  submitter_name?: string;
 }
 
 export interface GenerateEventData {
@@ -79,10 +75,9 @@ export async function streamGenerate(
   payload: GeneratePayload,
   onEvent: (event: string, data: GenerateEventData) => void
 ): Promise<void> {
-  const headers = await authHeader();
   const res = await fetch(`${API_BASE}/api/generate`, {
     method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
@@ -113,67 +108,25 @@ export async function streamGenerate(
   }
 }
 
-export interface RequestSummary {
-  id: string;
-  text: string | null;
-  features: string[];
-  status: string;
-  created_at: string;
-  completed_outputs: OutputType[];
-}
-
-export interface RequestDetail {
-  id: string;
-  user_id: string;
-  text: string | null;
-  features: string[];
-  confirmed_features: string[] | null;
-  status: string;
-  interview_answers: { id: string; answer: string }[] | null;
-  file_paths: string[] | null;
-  created_at: string;
-  outputs: {
-    type: OutputType;
-    content: { content: string } | SummaryContent;
-    created_at: string;
-  }[];
-}
-
-export async function fetchRequests(): Promise<RequestSummary[]> {
-  const headers = await authHeader();
-  const res = await fetch(`${API_BASE}/api/requests`, { headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "요청 이력을 불러오지 못했습니다.");
-  }
-  return res.json();
-}
-
-export async function fetchRequestDetail(requestId: string): Promise<RequestDetail> {
-  const headers = await authHeader();
-  const res = await fetch(`${API_BASE}/api/requests/${requestId}`, { headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "요청 상세를 불러오지 못했습니다.");
-  }
-  return res.json();
-}
-
 export interface UpdateRequestPayload {
-  text: string;
-  features: string[];
+  pain_point: PainPoint;
   file_paths: string[];
-  interview_answers: { id: string; answer: string }[];
+}
+
+export interface RequestUpdateResponse {
+  id: string;
+  status: string;
+  pain_point: PainPoint;
+  file_paths: string[] | null;
 }
 
 export async function updateRequest(
   requestId: string,
   payload: UpdateRequestPayload
-): Promise<RequestDetail> {
-  const headers = await authHeader();
+): Promise<RequestUpdateResponse> {
   const res = await fetch(`${API_BASE}/api/requests/${requestId}`, {
     method: "PATCH",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -184,10 +137,8 @@ export async function updateRequest(
 }
 
 export async function deleteRequest(requestId: string): Promise<void> {
-  const headers = await authHeader();
   const res = await fetch(`${API_BASE}/api/requests/${requestId}`, {
     method: "DELETE",
-    headers,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -205,10 +156,9 @@ export async function confirmRequest(
   requestId: string,
   confirmedFeatures: string[]
 ): Promise<ConfirmResponse> {
-  const headers = await authHeader();
   const res = await fetch(`${API_BASE}/api/requests/${requestId}/confirm`, {
     method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ confirmed_features: confirmedFeatures }),
   });
   if (!res.ok) {
@@ -222,32 +172,14 @@ export async function updateSummary(
   requestId: string,
   content: SummaryContent
 ): Promise<SummaryContent> {
-  const headers = await authHeader();
   const res = await fetch(`${API_BASE}/api/requests/${requestId}/summary`, {
     method: "PATCH",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(content),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "요약 수정에 실패했습니다.");
-  }
-  return res.json();
-}
-
-export async function updateRequestStatus(
-  requestId: string,
-  status: string
-): Promise<{ request_id: string; status: string }> {
-  const headers = await authHeader();
-  const res = await fetch(`${API_BASE}/api/requests/${requestId}/status`, {
-    method: "PATCH",
-    headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "상태 변경에 실패했습니다.");
   }
   return res.json();
 }

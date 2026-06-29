@@ -50,14 +50,16 @@ export default function FeatureChecklist({
         {items.map((item) => (
           <li
             key={item.id}
-            className="flex items-start gap-3 rounded-md border border-gray-200 p-3"
+            className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+              item.checked ? "border-blue-200 bg-blue-50/40" : "border-gray-200"
+            }`}
           >
             <input
               type="checkbox"
               checked={item.checked}
               disabled={disabled}
               onChange={() => toggle(item.id)}
-              className="mt-1"
+              className="mt-1 h-4 w-4 accent-blue-600"
             />
             <div className="flex-1">
               {editableText ? (
@@ -65,12 +67,12 @@ export default function FeatureChecklist({
                   <input
                     value={item.name}
                     onChange={(e) => updateText(item.id, "name", e.target.value)}
-                    className="rounded border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 outline-none"
+                    className="rounded-lg border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                   <input
                     value={item.description}
                     onChange={(e) => updateText(item.id, "description", e.target.value)}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-500 outline-none"
+                    className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-500 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </div>
               ) : (
@@ -84,7 +86,7 @@ export default function FeatureChecklist({
               <button
                 type="button"
                 onClick={() => remove(item.id)}
-                className="text-gray-400 hover:text-gray-700"
+                className="text-gray-400 hover:text-red-500"
               >
                 ×
               </button>
@@ -103,7 +105,7 @@ export default function FeatureChecklist({
             }
           }}
           placeholder="빠진 기능을 입력 후 Enter"
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none"
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
       )}
     </div>

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { SummaryCard } from "@/lib/api";
 
+const INPUT_CLASS =
+  "mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+
 export default function ServiceSummaryCard({
   card,
   editable,
@@ -14,7 +17,7 @@ export default function ServiceSummaryCard({
 
   if (!editable || !onChange) {
     return (
-      <div className="rounded-lg border border-gray-200 p-6">
+      <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-6">
         <h2 className="text-lg font-semibold text-gray-900">{card.service_name}</h2>
         <p className="mt-2 text-sm text-gray-700">{card.purpose}</p>
 
@@ -26,7 +29,7 @@ export default function ServiceSummaryCard({
           {card.key_features.map((feature) => (
             <li
               key={feature}
-              className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
+              className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700"
             >
               {feature}
             </li>
@@ -48,13 +51,13 @@ export default function ServiceSummaryCard({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-gray-200 p-6">
+    <div className="flex flex-col gap-3 rounded-xl border border-gray-200 p-6">
       <div>
         <label className="text-xs font-medium text-gray-500">서비스 이름</label>
         <input
           value={card.service_name}
           onChange={(e) => onChange({ ...card, service_name: e.target.value })}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none"
+          className={INPUT_CLASS}
         />
       </div>
       <div>
@@ -63,7 +66,7 @@ export default function ServiceSummaryCard({
           value={card.purpose}
           onChange={(e) => onChange({ ...card, purpose: e.target.value })}
           rows={2}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none"
+          className={INPUT_CLASS}
         />
       </div>
       <div>
@@ -71,7 +74,7 @@ export default function ServiceSummaryCard({
         <input
           value={card.target_users}
           onChange={(e) => onChange({ ...card, target_users: e.target.value })}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none"
+          className={INPUT_CLASS}
         />
       </div>
       <div>
@@ -80,10 +83,10 @@ export default function ServiceSummaryCard({
           {card.key_features.map((feature) => (
             <li
               key={feature}
-              className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
+              className="flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700"
             >
               {feature}
-              <button type="button" onClick={() => removeFeature(feature)} className="text-gray-400 hover:text-gray-700">
+              <button type="button" onClick={() => removeFeature(feature)} className="text-blue-400 hover:text-blue-700">
                 ×
               </button>
             </li>
@@ -99,7 +102,7 @@ export default function ServiceSummaryCard({
             }
           }}
           placeholder="핵심 기능 입력 후 Enter"
-          className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none"
+          className={`${INPUT_CLASS} mt-2`}
         />
       </div>
     </div>

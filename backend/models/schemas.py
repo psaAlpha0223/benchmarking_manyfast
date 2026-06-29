@@ -3,72 +3,42 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class InterviewAnswer(BaseModel):
-    id: str
-    answer: str
-
-
-class Question(BaseModel):
-    id: str
-    question: str
-    options: list[str]
-
-
-class InterviewRequest(BaseModel):
-    text: Optional[str] = None
-    features: list[str]
-    file_paths: Optional[list[str]] = None
-
-
-class InterviewResponse(BaseModel):
-    questions: list[Question]
+class PainPoint(BaseModel):
+    feature_request: str
+    current_process: str
+    pain_points: list[str] = []
+    pain_points_other: Optional[str] = None
+    desired_change: Optional[str] = None
+    required_outputs: list[str] = []
+    required_outputs_other: Optional[str] = None
+    current_tools: list[str] = []
+    current_tools_other: Optional[str] = None
+    input_data_types: list[str] = []
+    input_data_types_other: Optional[str] = None
+    sample_link: Optional[str] = None
+    dev_preference: list[str] = []
+    constraints: Optional[str] = None
 
 
 class GenerateRequest(BaseModel):
-    text: Optional[str] = None
-    features: list[str]
+    pain_point: Optional[PainPoint] = None
     file_paths: Optional[list[str]] = None
-    interview_answers: Optional[list[InterviewAnswer]] = None
-    output_type: str  # "summary" | "prd" | "spec" | "userflow" | "wireframe"
+    output_type: str = "summary"
     request_id: Optional[str] = None
-    prd_content: Optional[str] = None
-    spec_content: Optional[str] = None
-    userflow_content: Optional[str] = None
-
-
-class RequestSummary(BaseModel):
-    id: str
-    text: Optional[str] = None
-    features: list[str]
-    status: str
-    created_at: str
-    completed_outputs: list[str]
-
-
-class OutputItem(BaseModel):
-    type: str
-    content: dict
-    created_at: str
-
-
-class RequestDetail(BaseModel):
-    id: str
-    user_id: str
-    text: Optional[str] = None
-    features: list[str]
-    confirmed_features: Optional[list[str]] = None
-    status: str
-    interview_answers: Optional[list[dict]] = None
-    file_paths: Optional[list[str]] = None
-    created_at: str
-    outputs: list[OutputItem]
+    team: Optional[str] = None
+    submitter_name: Optional[str] = None
 
 
 class UpdateRequestPayload(BaseModel):
-    text: Optional[str] = None
-    features: list[str]
+    pain_point: PainPoint
     file_paths: Optional[list[str]] = None
-    interview_answers: Optional[list[InterviewAnswer]] = None
+
+
+class RequestUpdateResponse(BaseModel):
+    id: str
+    status: str
+    pain_point: PainPoint
+    file_paths: Optional[list[str]] = None
 
 
 class ConfirmPayload(BaseModel):
@@ -79,15 +49,6 @@ class ConfirmResponse(BaseModel):
     request_id: str
     status: str
     confirmed_features: list[str]
-
-
-class StatusUpdatePayload(BaseModel):
-    status: str  # "in_review" | "completed"
-
-
-class StatusUpdateResponse(BaseModel):
-    request_id: str
-    status: str
 
 
 class SummaryCardPayload(BaseModel):

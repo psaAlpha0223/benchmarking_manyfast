@@ -25,11 +25,11 @@ const MAX_TOTAL_SIZE = 1024 * 1024 * 1024;
 const BUCKET = "request-files";
 
 export default function FileUploader({
-  userId,
+  sessionId,
   files,
   onChange,
 }: {
-  userId: string;
+  sessionId: string;
   files: UploadedFile[];
   onChange: (files: UploadedFile[]) => void;
 }) {
@@ -71,7 +71,7 @@ export default function FileUploader({
 
       for (const file of accepted) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `${userId}/${Date.now()}-${safeName}`;
+        const path = `${sessionId}/${Date.now()}-${safeName}`;
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
           .upload(path, file);
@@ -88,7 +88,7 @@ export default function FileUploader({
         onChange([...files, ...uploaded]);
       }
     },
-    [files, onChange, userId]
+    [files, onChange, sessionId]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
@@ -104,8 +104,8 @@ export default function FileUploader({
       <label className="text-sm font-medium text-gray-700">파일 첨부 (선택)</label>
       <div
         {...getRootProps()}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-8 text-center text-sm ${
-          isDragActive ? "border-gray-500 bg-gray-50" : "border-gray-300"
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm transition-colors ${
+          isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-blue-300 hover:bg-blue-50/40"
         }`}
       >
         <input {...getInputProps()} />
@@ -117,7 +117,7 @@ export default function FileUploader({
         </p>
       </div>
 
-      {uploading && <p className="text-xs text-gray-500">업로드 중...</p>}
+      {uploading && <p className="text-xs text-blue-500">업로드 중...</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {files.length > 0 && (
@@ -125,13 +125,13 @@ export default function FileUploader({
           {files.map((file) => (
             <li
               key={file.path}
-              className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2 text-sm"
             >
               <span className="truncate text-gray-700">{file.name}</span>
               <button
                 type="button"
                 onClick={() => removeFile(file)}
-                className="text-gray-400 hover:text-gray-700"
+                className="text-gray-400 hover:text-red-500"
               >
                 삭제
               </button>

@@ -50,20 +50,6 @@ def _build_content_blocks(prompt_text: str, image_blocks: Optional[list[dict]]) 
     return blocks
 
 
-def generate_questions(prompt_text: str, image_blocks: Optional[list[dict]] = None) -> dict:
-    client = get_client()
-    message = client.messages.create(
-        model=_model(),
-        max_tokens=_max_tokens(),
-        temperature=0,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": _build_content_blocks(prompt_text, image_blocks)}],
-    )
-    raw = message.content[0].text.strip()
-    raw = re.sub(r"^```(json)?|```$", "", raw, flags=re.MULTILINE).strip()
-    return json.loads(raw)
-
-
 def generate_summary(prompt_text: str) -> dict:
     client = get_client()
     message = client.messages.create(
@@ -75,7 +61,13 @@ def generate_summary(prompt_text: str) -> dict:
     )
     raw = message.content[0].text.strip()
     raw = re.sub(r"^```(json)?|```$", "", raw, flags=re.MULTILINE).strip()
-    return json.loads(raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"요약 결과가 올바른 JSON 형식이 아닙니다 (stop_reason={message.stop_reason}): {exc}. "
+            f"원본 일부: {raw[:300]}"
+        ) from exc
 
 
 def stream_completion(

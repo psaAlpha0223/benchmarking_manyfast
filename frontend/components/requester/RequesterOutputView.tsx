@@ -13,14 +13,12 @@ export default function RequesterOutputView({
   onConfirm,
   onEdit,
   onSaveSummary,
-  forceReadOnly,
 }: {
   summary: SummaryContent;
   status: string;
   onConfirm: (confirmedFeatures: string[]) => Promise<void>;
   onEdit: () => void;
   onSaveSummary?: (content: SummaryContent) => Promise<void>;
-  forceReadOnly?: boolean;
 }) {
   const [items, setItems] = useState<FeatureChecklistItem[]>(summary.feature_checklist);
   const [card, setCard] = useState(summary.summary_card);
@@ -29,7 +27,7 @@ export default function RequesterOutputView({
   const [editingSummary, setEditingSummary] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const readOnly = forceReadOnly || status !== "drafting";
+  const readOnly = status !== "drafting";
 
   async function handleConfirm() {
     setConfirming(true);
@@ -83,7 +81,7 @@ export default function RequesterOutputView({
             type="button"
             onClick={handleCancelEditSummary}
             disabled={saving}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             취소
           </button>
@@ -91,7 +89,7 @@ export default function RequesterOutputView({
             type="button"
             onClick={handleSaveSummary}
             disabled={saving}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             {saving ? "저장 중..." : "요약 저장"}
           </button>
@@ -103,7 +101,7 @@ export default function RequesterOutputView({
               type="button"
               onClick={() => setEditingSummary(true)}
               disabled={confirming}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               요약 내용 수정
             </button>

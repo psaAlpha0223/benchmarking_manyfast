@@ -7,7 +7,7 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import generate, interview, requests
+from routers import generate, requests
 
 app = FastAPI()
 
@@ -18,7 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(interview.router)
 app.include_router(generate.router)
 app.include_router(requests.router)
 
