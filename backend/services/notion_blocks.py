@@ -209,9 +209,9 @@ def markdown_to_blocks(markdown_text: str) -> list[dict]:
             i = next_i
             continue
 
-        heading_match = re.match(r"^(#{1,3})\s+(.*)$", stripped)
+        heading_match = re.match(r"^(#{1,6})\s+(.*)$", stripped)
         if heading_match:
-            level = len(heading_match.group(1))
+            level = min(len(heading_match.group(1)), 3)  # 노션은 heading_3까지만 지원
             blocks.append(_heading(level, heading_match.group(2)))
             i += 1
             continue
